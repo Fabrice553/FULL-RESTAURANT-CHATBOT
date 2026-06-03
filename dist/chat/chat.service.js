@@ -26,8 +26,8 @@ let ChatService = class ChatService {
         this.orderService = orderService;
         this.paymentService = paymentService;
         this.cartItems = new Map();
-        this.menuNavigationState = new Map(); // Track menu browsing state
-        this.selectedItem = new Map(); // Track selected item for options
+        this.menuNavigationState = new Map();
+        this.selectedItem = new Map();
     }
     /**
      * Main chat message handler
@@ -147,13 +147,14 @@ let ChatService = class ChatService {
         if (!item) {
             return '❌ Item not found.';
         }
-        if (input === '0') {
+        const command = this.parseCommand(input);
+        if (command === 0) {
             this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.BROWSING_MENU);
             const state = this.menuNavigationState.get(sessionId);
             return this.menuService.formatCategoryItems(state.category);
         }
-        if (input === 'confirm') {
-            // Add to cart
+        if (command === 9) {
+            // Add to cart using number 9
             if (!this.cartItems.has(sessionId)) {
                 this.cartItems.set(sessionId, []);
             }
@@ -174,7 +175,7 @@ let ChatService = class ChatService {
             this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.VIEWING_CART);
             return `✅ ${item.name} added to cart!\n\n` + this.formatCartForDisplay(sessionId);
         }
-        return `✅ ${item.name} selected!\n\nEnter 'confirm' to add to cart or '0' to go back`;
+        return `📦 ${item.name} - $${item.price.toFixed(2)}\n\n${item.description}\n\n9️⃣  - Add to cart\n0️⃣  - Back to menu`;
     }
     /**
      * Handle cart viewing
@@ -259,7 +260,8 @@ let ChatService = class ChatService {
                 return this.paymentService.formatPaymentMessage(paymentLink.authorizationUrl, currentOrder.totalAmount * 100, currentOrder.orderId);
             }
             catch (error) {
-                return '❌ Failed to generate payment link. Please try again.';
+                console.error('Payment error:', error);
+                return '❌ Failed to generate payment link. Please try again. Error: ' + error.message;
             }
         }
         if (command === constants_1.CHAT_COMMANDS.CANCEL_ORDER) {
@@ -338,7 +340,7 @@ let ChatService = class ChatService {
     formatCartForDisplay(sessionId) {
         const cart = this.cartItems.get(sessionId) || [];
         if (cart.length === 0) {
-            return '🛒 **Your Cart**\n\nCart is empty.\n\n1️⃣  - Continue Shopping\n99️⃣  - Place Order\n0️⃣  - Back to Main Menu';
+            return '🛒 **Your Cart**\n\nCart is empty.\n\n1️⃣  - Add items\n99️⃣  - Checkout\n0️⃣  - Main Menu';
         }
         let message = '🛒 **Your Cart**\n\n';
         let total = 0;
@@ -350,7 +352,7 @@ let ChatService = class ChatService {
         message += `\n**Total: $${total.toFixed(2)}**\n\n`;
         message += `1️⃣  - Add more items\n`;
         message += `99️⃣  - Checkout\n`;
-        message += `0️⃣  - Back to Main Menu`;
+        message += `0️⃣  - Main Menu`;
         return message;
     }
     /**
