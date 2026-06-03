@@ -15,57 +15,60 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatController = void 0;
 const common_1 = require("@nestjs/common");
 const chat_service_1 = require("./chat.service");
-const payment_service_1 = require("../payment/payment.service");
+const send_message_dto_1 = require("../common/dtos/send-message.dto");
 let ChatController = class ChatController {
-    constructor(chatService, paymentService) {
+    constructor(chatService) {
         this.chatService = chatService;
-        this.paymentService = paymentService;
     }
-    async sendMessage(body) {
-        const { deviceId, message, email } = body;
-        if (!deviceId || !message) {
+    /**
+     * Send a message to the chatbot
+     */
+    async sendMessage(sendMessageDto) {
+        try {
+            const result = await this.chatService.handleMessage(sendMessageDto.deviceId, sendMessageDto.message);
             return {
-                success: false,
-                message: 'deviceId and message are required',
+                success: true,
+                data: result,
+                message: 'Message processed successfully',
             };
         }
-        const response = this.chatService.handleUserInput(deviceId, message);
-        return {
-            success: true,
-            data: response,
-        };
-    }
-    async initializePayment(body) {
-        const { deviceId, email } = body;
-        const order = this.chatService.getCurrentOrderForPayment(deviceId);
-        if (!order) {
+        catch (error) {
             return {
                 success: false,
-                message: 'No order found',
+                data: { botResponse: 'An error occurred. Please try again.', sessionId: '' },
+                message: error.message,
             };
         }
-        const paymentResponse = await this.paymentService.initializePayment(email, order.totalPrice, order.id);
+    }
+    /**
+     * Health check
+     */
+    health() {
         return {
-            success: paymentResponse.success,
-            data: paymentResponse.data || null,
-            message: paymentResponse.message,
+            status: 'ok',
+            message: 'ChatBot API is running',
+            timestamp: new Date().toISOString(),
         };
     }
-    async verifyPayment(reference, deviceId, res) {
-        const verifyResponse = await this.paymentService.verifyPayment(reference);
-        if (verifyResponse.success) {
-            const orderId = verifyResponse.data.metadata.orderId;
-            this.chatService.updateOrderStatus(deviceId, orderId, 'paid');
-            return res.redirect(`/chatbot?status=success&orderId=${orderId}&message=Payment successful!`);
-        }
-        return res.redirect('/chatbot?status=failed&message=Payment verification failed');
-    }
-    async scheduleOrder(body) {
-        const { deviceId, orderId, scheduledDate } = body;
-        const result = this.chatService.scheduleOrder(deviceId, orderId, new Date(scheduledDate));
+    /**
+     * Get chatbot info
+     */
+    info() {
         return {
-            success: true,
-            message: result,
+            name: 'Restaurant ChatBot',
+            version: '1.0.0',
+            description: 'A full-featured restaurant ordering chatbot',
+            features: [
+                'Interactive chat interface',
+                'Browse restaurant menu',
+                'Add items to cart',
+                'Paystack payment integration',
+                'Order history tracking',
+                'View current orders',
+                'Cancel orders',
+                'Device-based session management',
+                'Input validation',
+            ],
         };
     }
 };
@@ -74,35 +77,23 @@ __decorate([
     (0, common_1.Post)('message'),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
+    __metadata("design:paramtypes", [send_message_dto_1.SendMessageDto]),
     __metadata("design:returntype", Promise)
 ], ChatController.prototype, "sendMessage", null);
 __decorate([
-    (0, common_1.Post)('payment/initialize'),
-    __param(0, (0, common_1.Body)()),
+    (0, common_1.Get)('health'),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], ChatController.prototype, "initializePayment", null);
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], ChatController.prototype, "health", null);
 __decorate([
-    (0, common_1.Get)('payment/verify'),
-    __param(0, (0, common_1.Query)('reference')),
-    __param(1, (0, common_1.Query)('deviceId')),
-    __param(2, (0, common_1.Res)()),
+    (0, common_1.Get)('info'),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String, Object]),
-    __metadata("design:returntype", Promise)
-], ChatController.prototype, "verifyPayment", null);
-__decorate([
-    (0, common_1.Post)('schedule-order'),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object]),
-    __metadata("design:returntype", Promise)
-], ChatController.prototype, "scheduleOrder", null);
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", void 0)
+], ChatController.prototype, "info", null);
 exports.ChatController = ChatController = __decorate([
-    (0, common_1.Controller)('chat'),
-    __metadata("design:paramtypes", [chat_service_1.ChatService,
-        payment_service_1.PaymentService])
+    (0, common_1.Controller)('api/chat'),
+    __metadata("design:paramtypes", [chat_service_1.ChatService])
 ], ChatController);
 //# sourceMappingURL=chat.controller.js.map

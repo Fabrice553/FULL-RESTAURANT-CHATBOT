@@ -1,0 +1,1 @@
+{"version":3,"file":"send-message.dto.d.ts","sourceRoot":"","sources":["../../../src/common/dtos/send-message.dto.ts"],"names":[],"mappings":"AAEA,qBAAa,cAAc;IAGzB,QAAQ,EAAE,MAAM,CAAC;IAIjB,OAAO,EAAE,MAAM,CAAC;IAIhB,SAAS,CAAC,EAAE,MAAM,CAAC;CACpB"}

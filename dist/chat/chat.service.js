@@ -5,204 +5,387 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
     else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
     return c > 3 && r && Object.defineProperty(target, key, r), r;
 };
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ChatService = void 0;
 const common_1 = require("@nestjs/common");
-const uuid_1 = require("uuid");
+const session_service_1 = require("../session/session.service");
+const menu_service_1 = require("../menu/menu.service");
+const order_service_1 = require("../order/order.service");
+const payment_service_1 = require("../payment/payment.service");
+const constants_1 = require("../common/constants");
+/**
+ * Chat Service - Main chatbot logic and flow
+ */
 let ChatService = class ChatService {
-    constructor() {
-        this.sessions = new Map();
-        this.menuItems = [
-            { id: 1, name: 'Grilled Chicken', price: 25.99, description: 'Juicy grilled chicken with herbs' },
-            { id: 2, name: 'Pasta Carbonara', price: 18.5, description: 'Classic Italian pasta' },
-            { id: 3, name: 'Beef Burger', price: 22.0, description: 'Homemade beef burger with fries' },
-            { id: 4, name: 'Caesar Salad', price: 12.99, description: 'Fresh garden salad' },
-            { id: 5, name: 'Fish & Chips', price: 21.5, description: 'Crispy fish with golden chips' },
-        ];
+    constructor(sessionService, menuService, orderService, paymentService) {
+        this.sessionService = sessionService;
+        this.menuService = menuService;
+        this.orderService = orderService;
+        this.paymentService = paymentService;
+        this.cartItems = new Map();
+        this.menuNavigationState = new Map(); // Track menu browsing state
+        this.selectedItem = new Map(); // Track selected item for options
     }
-    getOrCreateSession(deviceId) {
-        if (!this.sessions.has(deviceId)) {
-            this.sessions.set(deviceId, {
-                sessionId: (0, uuid_1.v4)(),
-                currentCart: [],
-                orderHistory: [],
-                createdAt: new Date(),
-            });
+    /**
+     * Main chat message handler
+     */
+    async handleMessage(deviceId, userMessage) {
+        const session = this.sessionService.getOrCreateSession(deviceId);
+        const sessionId = session.sessionId;
+        const userInput = userMessage.trim().toLowerCase();
+        let botResponse = '';
+        switch (session.state) {
+            case constants_1.CHAT_STATES.MAIN_MENU:
+                botResponse = await this.handleMainMenu(sessionId, userInput);
+                break;
+            case constants_1.CHAT_STATES.BROWSING_MENU:
+                botResponse = await this.handleBrowsingMenu(sessionId, userInput);
+                break;
+            case constants_1.CHAT_STATES.SELECTING_ITEM:
+                botResponse = await this.handleSelectingItem(sessionId, userInput);
+                break;
+            case constants_1.CHAT_STATES.ADDING_TO_CART:
+                botResponse = await this.handleAddingToCart(sessionId, userInput);
+                break;
+            case constants_1.CHAT_STATES.VIEWING_CART:
+                botResponse = await this.handleViewingCart(sessionId, userInput);
+                break;
+            case constants_1.CHAT_STATES.CHECKOUT:
+                botResponse = await this.handleCheckout(sessionId, userInput);
+                break;
+            case constants_1.CHAT_STATES.PAYMENT:
+                botResponse = await this.handlePayment(sessionId, userInput);
+                break;
+            case constants_1.CHAT_STATES.ORDER_HISTORY:
+                botResponse = await this.handleOrderHistory(sessionId, userInput);
+                break;
+            case constants_1.CHAT_STATES.CURRENT_ORDER:
+                botResponse = await this.handleCurrentOrder(sessionId, userInput);
+                break;
+            case constants_1.CHAT_STATES.SCHEDULING:
+                botResponse = await this.handleScheduling(sessionId, userInput);
+                break;
+            default:
+                botResponse = constants_1.MAIN_MENU_MESSAGE;
+                this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.MAIN_MENU);
         }
-        return this.sessions.get(deviceId);
-    }
-    handleUserInput(deviceId, input) {
-        const trimmedInput = input.trim();
-        const session = this.getOrCreateSession(deviceId);
-        // Validate input
-        if (!trimmedInput) {
-            return { message: '❌ Invalid input. Please enter a valid option.' };
-        }
-        const choice = trimmedInput;
-        // Main menu options
-        if (choice === '1') {
-            return { message: this.getMenuOptions(), nextAction: 'selectMenuItem' };
-        }
-        if (choice === '99') {
-            return { message: this.checkoutOrder(session) };
-        }
-        if (choice === '98') {
-            return { message: this.getOrderHistory(session) };
-        }
-        if (choice === '97') {
-            return { message: this.getCurrentOrder(session) };
-        }
-        if (choice === '0') {
-            return { message: this.cancelOrder(session) };
-        }
-        // Handle menu item selection
-        if (this.isNumericValid(choice)) {
-            const itemId = parseInt(choice, 10);
-            const menuItem = this.menuItems.find((item) => item.id === itemId);
-            if (menuItem) {
-                session.currentCart.push({ menuItem, quantity: 1 });
-                return {
-                    message: `✅ "${menuItem.name}" added to cart! ($${menuItem.price})\n\n📋 Current Cart Total: $${this.calculateCartTotal(session.currentCart).toFixed(2)}\n\nEnter another item number or select 99 to checkout.`,
-                };
-            }
-        }
-        return this.getMainMenu();
-    }
-    getMainMenu() {
         return {
-            message: `
-🍽️ **WELCOME TO RESTAURANT CHATBOT** 🤖
-
-Please select an option:
-📦 Select **1** - Place an order
-💳 Select **99** - Checkout order
-📜 Select **98** - See order history
-📍 Select **97** - See current order
-❌ Select **0** - Cancel order
-
-What would you like to do?`,
+            botResponse,
+            sessionId,
         };
     }
-    getMenuOptions() {
-        let menuText = `
-🍽️ **OUR MENU** 🍽️
-
-`;
-        this.menuItems.forEach((item) => {
-            menuText += `**${item.id}** - ${item.name} - $${item.price.toFixed(2)}\n   📝 ${item.description}\n\n`;
-        });
-        menuText += `Select the item number to add to cart, or select 99 to checkout.`;
-        return menuText;
-    }
-    checkoutOrder(session) {
-        if (session.currentCart.length === 0) {
-            return `❌ No order to place.\n\nWould you like to place a new order? Select **1** to continue.`;
+    /**
+     * Handle main menu interactions
+     */
+    async handleMainMenu(sessionId, input) {
+        const command = this.parseCommand(input);
+        switch (command) {
+            case constants_1.CHAT_COMMANDS.PLACE_ORDER:
+                this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.BROWSING_MENU);
+                this.menuNavigationState.set(sessionId, { level: 'category' });
+                return this.menuService.formatMenuForDisplay();
+            case constants_1.CHAT_COMMANDS.CHECKOUT:
+                return this.handleCheckoutFlow(sessionId);
+            case constants_1.CHAT_COMMANDS.ORDER_HISTORY:
+                this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.ORDER_HISTORY);
+                const history = this.orderService.getOrderHistory(sessionId);
+                return this.orderService.formatOrderHistory(history);
+            case constants_1.CHAT_COMMANDS.CURRENT_ORDER:
+                this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.CURRENT_ORDER);
+                const currentOrder = this.orderService.getCurrentOrder(sessionId);
+                if (!currentOrder) {
+                    return '📦 **Current Order**\n\nNo current order found.\n\n0️⃣  - Back to Main Menu';
+                }
+                return this.orderService.formatOrderForDisplay(currentOrder);
+            case constants_1.CHAT_COMMANDS.CANCEL_ORDER:
+                return this.handleCancelOrder(sessionId);
+            default:
+                return constants_1.MAIN_MENU_MESSAGE;
         }
-        const orderId = (0, uuid_1.v4)();
-        const totalPrice = this.calculateCartTotal(session.currentCart);
-        const order = {
-            id: orderId,
-            items: [...session.currentCart],
-            totalPrice,
-            status: 'pending',
-            createdAt: new Date(),
-        };
-        session.currentOrder = order;
-        session.orderHistory.push(order);
-        session.currentCart = [];
-        return `
-✅ **ORDER CONFIRMED!**
-
-Order ID: ${orderId}
-Total Amount: $${totalPrice.toFixed(2)}
-
-📦 Items:
-${order.items.map((item) => `- ${item.menuItem.name} x${item.quantity} = $${(item.menuItem.price * item.quantity).toFixed(2)}`).join('\n')}
-
-Proceed to payment? Select your preferred option:
-💳 Select **1** - Pay with Paystack
-⏰ Select **2** - Schedule order (optional)
-🏠 Select **3** - Back to main menu
-`;
     }
-    getOrderHistory(session) {
-        if (session.orderHistory.length === 0) {
-            return `📜 **NO ORDER HISTORY**\n\nYou haven't placed any orders yet. Select **1** to start ordering.`;
+    /**
+     * Handle menu browsing
+     */
+    async handleBrowsingMenu(sessionId, input) {
+        const command = this.parseCommand(input);
+        const state = this.menuNavigationState.get(sessionId) || { level: 'category' };
+        if (command === constants_1.CHAT_COMMANDS.BACK_TO_MENU || command === constants_1.CHAT_COMMANDS.CANCEL_ORDER) {
+            this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.MAIN_MENU);
+            return constants_1.MAIN_MENU_MESSAGE;
         }
-        let historyText = `📜 **ORDER HISTORY** 📜\n\n`;
-        session.orderHistory.forEach((order, index) => {
-            historyText += `**Order ${index + 1}** - ID: ${order.id}\n`;
-            historyText += `Date: ${order.createdAt.toLocaleString()}\n`;
-            historyText += `Total: $${order.totalPrice.toFixed(2)}\n`;
-            historyText += `Status: ${order.status.toUpperCase()}\n`;
-            historyText += `Items: ${order.items.map((item) => `${item.menuItem.name} x${item.quantity}`).join(', ')}\n\n`;
-        });
-        historyText += `Select **1** to place a new order.`;
-        return historyText;
-    }
-    getCurrentOrder(session) {
-        if (!session.currentOrder) {
-            return `📍 **NO CURRENT ORDER**\n\nYou don't have an active order. Select **1** to start ordering.`;
-        }
-        const order = session.currentOrder;
-        return `
-📍 **CURRENT ORDER** 📍
-
-Order ID: ${order.id}
-Status: ${order.status.toUpperCase()}
-Created: ${order.createdAt.toLocaleString()}
-
-📦 Items:
-${order.items.map((item) => `- ${item.menuItem.name} x${item.quantity} = $${(item.menuItem.price * item.quantity).toFixed(2)}`).join('\n')}
-
-💰 Total: $${order.totalPrice.toFixed(2)}
-
-Select **1** to place a new order.
-`;
-    }
-    cancelOrder(session) {
-        if (!session.currentOrder && session.currentCart.length === 0) {
-            return `❌ **NO ORDER TO CANCEL**\n\nYou don't have any active order. Select **1** to start ordering.`;
-        }
-        if (session.currentOrder) {
-            session.currentOrder = undefined;
-        }
-        session.currentCart = [];
-        return `✅ **ORDER CANCELLED**\n\nYour order has been cancelled. Select **1** to place a new order.`;
-    }
-    calculateCartTotal(cart) {
-        return cart.reduce((total, item) => total + item.menuItem.price * item.quantity, 0);
-    }
-    isNumericValid(input) {
-        return /^\d+$/.test(input);
-    }
-    getCurrentOrderForPayment(deviceId) {
-        const session = this.sessions.get(deviceId);
-        return session?.currentOrder || null;
-    }
-    updateOrderStatus(deviceId, orderId, status) {
-        const session = this.sessions.get(deviceId);
-        if (session) {
-            const order = session.orderHistory.find((o) => o.id === orderId);
-            if (order) {
-                order.status = status;
+        if (state.level === 'category') {
+            const categories = this.menuService.getCategories();
+            if (command > 0 && command <= categories.length) {
+                const category = categories[command - 1];
+                state.level = 'items';
+                state.category = category;
+                this.menuNavigationState.set(sessionId, state);
+                this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.BROWSING_MENU);
+                return this.menuService.formatCategoryItems(category);
             }
         }
-    }
-    scheduleOrder(deviceId, orderId, scheduledDate) {
-        const session = this.sessions.get(deviceId);
-        if (session) {
-            const order = session.orderHistory.find((o) => o.id === orderId);
-            if (order) {
-                order.scheduledDate = scheduledDate;
-                return `✅ Order scheduled for ${scheduledDate.toLocaleString()}`;
+        else if (state.level === 'items') {
+            const items = this.menuService.getItemsByCategory(state.category);
+            const selectedItem = items.find((item) => item.id === command);
+            if (selectedItem) {
+                this.selectedItem.set(sessionId, selectedItem.id);
+                this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.SELECTING_ITEM);
+                return this.menuService.formatItemOptions(selectedItem.id);
             }
         }
-        return '❌ Order not found';
+        return '❌ Invalid selection. Please try again.';
+    }
+    /**
+     * Handle item selection with options
+     */
+    async handleSelectingItem(sessionId, input) {
+        const itemId = this.selectedItem.get(sessionId);
+        const item = this.menuService.getItemById(itemId);
+        if (!item) {
+            return '❌ Item not found.';
+        }
+        if (input === '0') {
+            this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.BROWSING_MENU);
+            const state = this.menuNavigationState.get(sessionId);
+            return this.menuService.formatCategoryItems(state.category);
+        }
+        if (input === 'confirm') {
+            // Add to cart
+            if (!this.cartItems.has(sessionId)) {
+                this.cartItems.set(sessionId, []);
+            }
+            const cart = this.cartItems.get(sessionId);
+            const existingItem = cart.find((ci) => ci.itemId === itemId);
+            if (existingItem) {
+                existingItem.quantity += 1;
+            }
+            else {
+                cart.push({
+                    itemId,
+                    itemName: item.name,
+                    price: item.price,
+                    quantity: 1,
+                    selectedOptions: [],
+                });
+            }
+            this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.VIEWING_CART);
+            return this.formatCartForDisplay(sessionId);
+        }
+        return `✅ ${item.name} added to cart!\n\nWhat would you like to do?\n1️⃣  - Add another item\n2️⃣  - View cart\n0️⃣  - Back`;
+    }
+    /**
+     * Handle cart viewing
+     */
+    async handleViewingCart(sessionId, input) {
+        const command = this.parseCommand(input);
+        if (command === constants_1.CHAT_COMMANDS.CANCEL_ORDER) {
+            this.cartItems.delete(sessionId);
+            this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.MAIN_MENU);
+            return constants_1.MAIN_MENU_MESSAGE;
+        }
+        if (command === 1) {
+            this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.BROWSING_MENU);
+            return this.menuService.formatMenuForDisplay();
+        }
+        if (command === 99) {
+            return this.handleCheckoutFlow(sessionId);
+        }
+        return this.formatCartForDisplay(sessionId);
+    }
+    /**
+     * Handle checkout flow
+     */
+    handleCheckoutFlow(sessionId) {
+        const cart = this.cartItems.get(sessionId) || [];
+        if (cart.length === 0) {
+            this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.MAIN_MENU);
+            return '❌ No items in cart!\n\n' + constants_1.MAIN_MENU_MESSAGE;
+        }
+        // Create order from cart
+        const orderItems = cart.map((item) => ({
+            itemId: item.itemId,
+            itemName: item.itemName,
+            price: item.price,
+            quantity: item.quantity,
+            selectedOptions: item.selectedOptions,
+        }));
+        const order = this.orderService.createOrder(sessionId, orderItems);
+        this.cartItems.delete(sessionId); // Clear cart
+        this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.PAYMENT);
+        return this.formatCheckoutSummary(order);
+    }
+    /**
+     * Handle checkout command
+     */
+    handleCheckout(sessionId, input) {
+        const command = this.parseCommand(input);
+        if (command === 1) {
+            // Proceed to payment
+            const currentOrder = this.orderService.getCurrentOrder(sessionId);
+            if (currentOrder) {
+                return this.formatPaymentInstructions(sessionId, currentOrder);
+            }
+        }
+        if (command === constants_1.CHAT_COMMANDS.CANCEL_ORDER) {
+            const currentOrder = this.orderService.getCurrentOrder(sessionId);
+            if (currentOrder) {
+                this.orderService.cancelOrder(currentOrder.orderId);
+            }
+            this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.MAIN_MENU);
+            return constants_1.MAIN_MENU_MESSAGE;
+        }
+        const currentOrder = this.orderService.getCurrentOrder(sessionId);
+        return this.orderService.formatOrderForDisplay(currentOrder);
+    }
+    /**
+     * Handle payment
+     */
+    async handlePayment(sessionId, input) {
+        const command = this.parseCommand(input);
+        if (command === 1) {
+            // Initiate payment
+            const currentOrder = this.orderService.getCurrentOrder(sessionId);
+            if (!currentOrder) {
+                return '❌ No order found.';
+            }
+            try {
+                const paymentLink = await this.paymentService.generatePaymentLink('customer@restaurant.com', currentOrder.totalAmount, currentOrder.orderId);
+                // Update order with payment reference
+                this.orderService.updatePaymentStatus(currentOrder.orderId, 'PENDING', paymentLink.reference);
+                this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.MAIN_MENU);
+                return this.paymentService.formatPaymentMessage(paymentLink.authorizationUrl, currentOrder.totalAmount * 100, currentOrder.orderId);
+            }
+            catch (error) {
+                return '❌ Failed to generate payment link. Please try again.';
+            }
+        }
+        if (command === constants_1.CHAT_COMMANDS.CANCEL_ORDER) {
+            const currentOrder = this.orderService.getCurrentOrder(sessionId);
+            if (currentOrder) {
+                this.orderService.cancelOrder(currentOrder.orderId);
+            }
+            this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.MAIN_MENU);
+            return 'Order cancelled.\n\n' + constants_1.MAIN_MENU_MESSAGE;
+        }
+        const currentOrder = this.orderService.getCurrentOrder(sessionId);
+        return this.formatCheckoutSummary(currentOrder);
+    }
+    /**
+     * Handle order history
+     */
+    async handleOrderHistory(sessionId, input) {
+        const command = this.parseCommand(input);
+        if (command === constants_1.CHAT_COMMANDS.CANCEL_ORDER) {
+            this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.MAIN_MENU);
+            return constants_1.MAIN_MENU_MESSAGE;
+        }
+        const history = this.orderService.getOrderHistory(sessionId);
+        return this.orderService.formatOrderHistory(history);
+    }
+    /**
+     * Handle current order
+     */
+    async handleCurrentOrder(sessionId, input) {
+        const command = this.parseCommand(input);
+        if (command === constants_1.CHAT_COMMANDS.CANCEL_ORDER) {
+            this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.MAIN_MENU);
+            return constants_1.MAIN_MENU_MESSAGE;
+        }
+        const currentOrder = this.orderService.getCurrentOrder(sessionId);
+        if (!currentOrder) {
+            return '📦 **Current Order**\n\nNo current order found.\n\n' + constants_1.MAIN_MENU_MESSAGE;
+        }
+        return this.orderService.formatOrderForDisplay(currentOrder);
+    }
+    /**
+     * Handle order cancellation
+     */
+    handleCancelOrder(sessionId) {
+        const currentOrder = this.orderService.getCurrentOrder(sessionId);
+        if (!currentOrder) {
+            this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.MAIN_MENU);
+            return '❌ No current order to cancel.\n\n' + constants_1.MAIN_MENU_MESSAGE;
+        }
+        const cancelled = this.orderService.cancelOrder(currentOrder.orderId);
+        if (cancelled) {
+            this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.MAIN_MENU);
+            return `✅ Order #${cancelled.orderId.slice(0, 8)} has been cancelled.\n\n` + constants_1.MAIN_MENU_MESSAGE;
+        }
+        return '❌ Cannot cancel this order. Please contact support.\n\n' + constants_1.MAIN_MENU_MESSAGE;
+    }
+    /**
+     * Handle adding to cart
+     */
+    async handleAddingToCart(sessionId, input) {
+        if (input === '0') {
+            this.sessionService.updateSessionState(sessionId, constants_1.CHAT_STATES.VIEWING_CART);
+            return this.formatCartForDisplay(sessionId);
+        }
+        return 'Item added to cart!';
+    }
+    /**
+     * Handle scheduling
+     */
+    async handleScheduling(sessionId, input) {
+        return 'Scheduling feature coming soon!';
+    }
+    /**
+     * Format cart for display
+     */
+    formatCartForDisplay(sessionId) {
+        const cart = this.cartItems.get(sessionId) || [];
+        if (cart.length === 0) {
+            return '🛒 **Your Cart**\n\nCart is empty.\n\n1️⃣  - Continue Shopping\n0️⃣  - Back to Menu';
+        }
+        let message = '🛒 **Your Cart**\n\n';
+        let total = 0;
+        cart.forEach((item, index) => {
+            const subtotal = item.price * item.quantity;
+            total += subtotal;
+            message += `${index + 1}. ${item.itemName} x${item.quantity} - $${subtotal.toFixed(2)}\n`;
+        });
+        message += `\n**Total: $${total.toFixed(2)}**\n\n`;
+        message += `1️⃣  - Add more items\n`;
+        message += `99️⃣  - Checkout\n`;
+        message += `0️⃣  - Clear cart`;
+        return message;
+    }
+    /**
+     * Format checkout summary
+     */
+    formatCheckoutSummary(order) {
+        const message = this.orderService.formatOrderForDisplay(order);
+        return (message +
+            `\n\n1️⃣  - Proceed to Payment\n` +
+            `0️⃣  - Cancel Order`);
+    }
+    /**
+     * Format payment instructions
+     */
+    formatPaymentInstructions(sessionId, order) {
+        return (`💳 **Ready for Payment**\n\n` +
+            `Order Total: $${order.totalAmount.toFixed(2)}\n` +
+            `Order ID: #${order.orderId.slice(0, 8)}\n\n` +
+            `1️⃣  - Proceed to Paystack Payment\n` +
+            `0️⃣  - Cancel Order`);
+    }
+    /**
+     * Parse numeric command from user input
+     */
+    parseCommand(input) {
+        const num = parseInt(input.replace(/[^\d-]/g, ''), 10);
+        return isNaN(num) ? -1 : num;
     }
 };
 exports.ChatService = ChatService;
 exports.ChatService = ChatService = __decorate([
-    (0, common_1.Injectable)()
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [session_service_1.SessionService,
+        menu_service_1.MenuService,
+        order_service_1.OrderService,
+        payment_service_1.PaymentService])
 ], ChatService);
 //# sourceMappingURL=chat.service.js.map

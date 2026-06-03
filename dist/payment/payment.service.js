@@ -12,56 +12,106 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.PaymentService = void 0;
 const common_1 = require("@nestjs/common");
 const axios_1 = __importDefault(require("axios"));
+const constants_1 = require("../common/constants");
+/**
+ * Payment Service - Handles Paystack integration
+ */
 let PaymentService = class PaymentService {
     constructor() {
-        this.paystackSecretKey = 'sk_test_a480070e69c0ee58ddb2f0d2cb77c1e6ddd25769'; // Replace with your key
-        this.paystackBaseUrl = 'https://api.paystack.co';
+        this.paystackUrl = 'https://api.paystack.co';
+        this.secretKey = process.env.PAYSTACK_SECRET_KEY;
     }
+    /**
+     * Initialize payment with Paystack
+     */
     async initializePayment(email, amount, orderId) {
         try {
-            const response = await axios_1.default.post(`${this.paystackBaseUrl}/transaction/initialize`, {
+            const response = await axios_1.default.post(`${this.paystackUrl}/transaction/initialize`, {
                 email,
-                amount: Math.round(amount * 100), // Paystack uses kobo (cents)
+                amount: Math.round(amount * 100), // Convert to kobo/cents
+                reference: `ORDER-${orderId}-${Date.now()}`,
                 metadata: {
                     orderId,
                 },
             }, {
                 headers: {
-                    Authorization: `Bearer ${this.paystackSecretKey}`,
+                    Authorization: `Bearer ${this.secretKey}`,
+                    'Content-Type': 'application/json',
                 },
             });
-            return {
-                success: true,
-                data: response.data.data,
-            };
+            return response.data;
         }
         catch (error) {
-            return {
-                success: false,
-                message: 'Payment initialization failed',
-                error: error.message,
-            };
+            console.error('Paystack initialization error:', error);
+            throw new Error('Failed to initialize payment');
         }
     }
+    /**
+     * Verify payment with Paystack
+     */
     async verifyPayment(reference) {
         try {
-            const response = await axios_1.default.get(`${this.paystackBaseUrl}/transaction/verify/${reference}`, {
+            const response = await axios_1.default.get(`${this.paystackUrl}/transaction/verify/${reference}`, {
                 headers: {
-                    Authorization: `Bearer ${this.paystackSecretKey}`,
+                    Authorization: `Bearer ${this.secretKey}`,
                 },
             });
-            return {
-                success: response.data.data.status === 'success',
-                data: response.data.data,
-            };
+            return response.data;
         }
         catch (error) {
+            console.error('Paystack verification error:', error);
+            throw new Error('Failed to verify payment');
+        }
+    }
+    /**
+     * Generate payment link
+     */
+    async generatePaymentLink(email, amount, orderId) {
+        const response = await this.initializePayment(email, amount, orderId);
+        if (!response.status) {
+            throw new Error('Failed to generate payment link');
+        }
+        return {
+            authorizationUrl: response.data.authorization_url,
+            reference: response.data.reference,
+        };
+    }
+    /**
+     * Verify payment and return status
+     */
+    async checkPaymentStatus(reference) {
+        const response = await this.verifyPayment(reference);
+        if (!response.status) {
             return {
-                success: false,
-                message: 'Payment verification failed',
-                error: error.message,
+                isPaid: false,
+                amount: 0,
+                status: constants_1.PAYMENT_STATUS.FAILED,
             };
         }
+        return {
+            isPaid: response.data.status === 'success',
+            amount: response.data.amount / 100, // Convert from kobo/cents
+            status: response.data.status === 'success' ? constants_1.PAYMENT_STATUS.COMPLETED : constants_1.PAYMENT_STATUS.FAILED,
+        };
+    }
+    /**
+     * Format payment link for display
+     */
+    formatPaymentMessage(authorizationUrl, amount, orderId) {
+        return `
+💳 **Payment Required**
+
+Order ID: #${orderId.slice(0, 8)}
+Amount: $${(amount / 100).toFixed(2)}
+
+Click the link below to complete payment:
+${authorizationUrl}
+
+After payment, you'll be redirected back to the chatbot.
+Your order will be confirmed once payment is verified.
+
+⏰ Payment link expires in 30 minutes.
+    `.trim();
     }
 };
 exports.PaymentService = PaymentService;

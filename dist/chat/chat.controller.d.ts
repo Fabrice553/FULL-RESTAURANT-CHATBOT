@@ -1,46 +1,35 @@
 import { ChatService } from './chat.service';
-import { PaymentService } from '../payment/payment.service';
-import { Response } from 'express';
+import { SendMessageDto } from '../common/dtos/send-message.dto';
 export declare class ChatController {
     private chatService;
-    private paymentService;
-    constructor(chatService: ChatService, paymentService: PaymentService);
-    sendMessage(body: {
-        deviceId: string;
-        message: string;
-        email?: string;
-    }): Promise<{
-        success: boolean;
-        message: string;
-        data?: undefined;
-    } | {
+    constructor(chatService: ChatService);
+    /**
+     * Send a message to the chatbot
+     */
+    sendMessage(sendMessageDto: SendMessageDto): Promise<{
         success: boolean;
         data: {
-            message: string;
-            nextAction?: string;
+            botResponse: string;
+            sessionId: string;
         };
-        message?: undefined;
-    }>;
-    initializePayment(body: {
-        deviceId: string;
-        email: string;
-    }): Promise<{
-        success: boolean;
-        message: string;
-        data?: undefined;
-    } | {
-        success: boolean;
-        data: any;
         message: string;
     }>;
-    verifyPayment(reference: string, deviceId: string, res: Response): Promise<void>;
-    scheduleOrder(body: {
-        deviceId: string;
-        orderId: string;
-        scheduledDate: string;
-    }): Promise<{
-        success: boolean;
+    /**
+     * Health check
+     */
+    health(): {
+        status: string;
         message: string;
-    }>;
+        timestamp: string;
+    };
+    /**
+     * Get chatbot info
+     */
+    info(): {
+        name: string;
+        version: string;
+        description: string;
+        features: string[];
+    };
 }
 //# sourceMappingURL=chat.controller.d.ts.map

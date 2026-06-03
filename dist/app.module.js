@@ -8,17 +8,29 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
-const chat_controller_1 = require("./chat/chat.controller");
-const chat_service_1 = require("./chat/chat.service");
-const payment_service_1 = require("./payment/payment.service");
+const serve_static_1 = require("@nestjs/serve-static");
+const path_1 = require("path");
+const chat_module_1 = require("./chat/chat.module");
+const order_module_1 = require("./order/order.module");
+const payment_module_1 = require("./payment/payment.module");
+const menu_module_1 = require("./menu/menu.module");
+const session_module_1 = require("./session/session.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
-        imports: [],
-        controllers: [chat_controller_1.ChatController],
-        providers: [chat_service_1.ChatService, payment_service_1.PaymentService],
+        imports: [
+            serve_static_1.ServeStaticModule.forRoot({
+                rootPath: (0, path_1.join)(__dirname, '..', 'public'),
+                serveRoot: '/public',
+            }),
+            chat_module_1.ChatModule,
+            order_module_1.OrderModule,
+            payment_module_1.PaymentModule,
+            menu_module_1.MenuModule,
+            session_module_1.SessionModule,
+        ],
     })
 ], AppModule);
 //# sourceMappingURL=app.module.js.map

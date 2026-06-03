@@ -1,47 +1,89 @@
-interface MenuItem {
-    id: number;
-    name: string;
-    price: number;
-    description: string;
-}
-interface CartItem {
-    menuItem: MenuItem;
-    quantity: number;
-}
-interface Order {
-    id: string;
-    items: CartItem[];
-    totalPrice: number;
-    status: 'pending' | 'paid' | 'completed';
-    createdAt: Date;
-    scheduledDate?: Date;
-}
-interface SessionData {
-    sessionId: string;
-    currentCart: CartItem[];
-    orderHistory: Order[];
-    currentOrder?: Order;
-    createdAt: Date;
-}
+import { SessionService } from '../session/session.service';
+import { MenuService } from '../menu/menu.service';
+import { OrderService } from '../order/order.service';
+import { PaymentService } from '../payment/payment.service';
+/**
+ * Chat Service - Main chatbot logic and flow
+ */
 export declare class ChatService {
-    private sessions;
-    private menuItems;
-    getOrCreateSession(deviceId: string): SessionData;
-    handleUserInput(deviceId: string, input: string): {
-        message: string;
-        nextAction?: string;
-    };
-    private getMainMenu;
-    private getMenuOptions;
-    private checkoutOrder;
-    private getOrderHistory;
-    private getCurrentOrder;
-    private cancelOrder;
-    private calculateCartTotal;
-    private isNumericValid;
-    getCurrentOrderForPayment(deviceId: string): Order | null;
-    updateOrderStatus(deviceId: string, orderId: string, status: 'pending' | 'paid' | 'completed'): void;
-    scheduleOrder(deviceId: string, orderId: string, scheduledDate: Date): string;
+    private sessionService;
+    private menuService;
+    private orderService;
+    private paymentService;
+    private cartItems;
+    private menuNavigationState;
+    private selectedItem;
+    constructor(sessionService: SessionService, menuService: MenuService, orderService: OrderService, paymentService: PaymentService);
+    /**
+     * Main chat message handler
+     */
+    handleMessage(deviceId: string, userMessage: string): Promise<{
+        botResponse: string;
+        sessionId: string;
+    }>;
+    /**
+     * Handle main menu interactions
+     */
+    private handleMainMenu;
+    /**
+     * Handle menu browsing
+     */
+    private handleBrowsingMenu;
+    /**
+     * Handle item selection with options
+     */
+    private handleSelectingItem;
+    /**
+     * Handle cart viewing
+     */
+    private handleViewingCart;
+    /**
+     * Handle checkout flow
+     */
+    private handleCheckoutFlow;
+    /**
+     * Handle checkout command
+     */
+    private handleCheckout;
+    /**
+     * Handle payment
+     */
+    private handlePayment;
+    /**
+     * Handle order history
+     */
+    private handleOrderHistory;
+    /**
+     * Handle current order
+     */
+    private handleCurrentOrder;
+    /**
+     * Handle order cancellation
+     */
+    private handleCancelOrder;
+    /**
+     * Handle adding to cart
+     */
+    private handleAddingToCart;
+    /**
+     * Handle scheduling
+     */
+    private handleScheduling;
+    /**
+     * Format cart for display
+     */
+    private formatCartForDisplay;
+    /**
+     * Format checkout summary
+     */
+    private formatCheckoutSummary;
+    /**
+     * Format payment instructions
+     */
+    private formatPaymentInstructions;
+    /**
+     * Parse numeric command from user input
+     */
+    private parseCommand;
 }
-export {};
 //# sourceMappingURL=chat.service.d.ts.map
