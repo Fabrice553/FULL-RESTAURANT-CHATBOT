@@ -1,99 +1,75 @@
-import { Controller, Post, Get, Body, Query, Res } from '@nestjs/common';
-import { ChatService } from './chat.service';
-import { PaymentService } from '../payment/payment.service';
+import { Controller, Post, Body, Get, Res } from '@nestjs/common';
 import { Response } from 'express';
+import { ChatService } from './chat.service';
+import { SendMessageDto } from '../common/dtos/send-message.dto';
 
-@Controller('chat')
+@Controller('api/chat')
 export class ChatController {
-  constructor(
-    private chatService: ChatService,
-    private paymentService: PaymentService,
-  ) {}
+  constructor(private chatService: ChatService) {}
 
+  /**
+   * Send a message to the chatbot
+   */
   @Post('message')
   async sendMessage(
-    @Body() body: { deviceId: string; message: string; email?: string },
-  ) {
-    const { deviceId, message, email } = body;
-
-    if (!deviceId || !message) {
-      return {
-        success: false,
-        message: 'deviceId and message are required',
-      };
-    }
-
-    const response = this.chatService.handleUserInput(deviceId, message);
-
-    return {
-      success: true,
-      data: response,
-    };
-  }
-
-  @Post('payment/initialize')
-  async initializePayment(
-    @Body() body: { deviceId: string; email: string },
-  ) {
-    const { deviceId, email } = body;
-
-    const order = this.chatService.getCurrentOrderForPayment(deviceId);
-
-    if (!order) {
-      return {
-        success: false,
-        message: 'No order found',
-      };
-    }
-
-    const paymentResponse = await this.paymentService.initializePayment(
-      email,
-      order.totalPrice,
-      order.id,
-    );
-
-    return {
-      success: paymentResponse.success,
-      data: paymentResponse.data || null,
-      message: paymentResponse.message,
-    };
-  }
-
-  @Get('payment/verify')
-  async verifyPayment(
-    @Query('reference') reference: string,
-    @Query('deviceId') deviceId: string,
-    @Res() res: Response,
-  ) {
-    const verifyResponse = await this.paymentService.verifyPayment(reference);
-
-    if (verifyResponse.success) {
-      const orderId = verifyResponse.data.metadata.orderId;
-      this.chatService.updateOrderStatus(deviceId, orderId, 'paid');
-
-      return res.redirect(
-        `/chatbot?status=success&orderId=${orderId}&message=Payment successful!`,
+    @Body() sendMessageDto: SendMessageDto,
+  ): Promise<{
+    success: boolean;
+    data: { botResponse: string; sessionId: string };
+    message: string;
+  }> {
+    try {
+      const result = await this.chatService.handleMessage(
+        sendMessageDto.deviceId,
+        sendMessageDto.message,
       );
-    }
 
-    return res.redirect('/chatbot?status=failed&message=Payment verification failed');
+      return {
+        success: true,
+        data: result,
+        message: 'Message processed successfully',
+      };
+    } catch (error) {
+      return {
+        success: false,
+        data: { botResponse: 'An error occurred. Please try again.', sessionId: '' },
+        message: error.message,
+      };
+    }
   }
 
-  @Post('schedule-order')
-  async scheduleOrder(
-    @Body() body: { deviceId: string; orderId: string; scheduledDate: string },
-  ) {
-    const { deviceId, orderId, scheduledDate } = body;
-
-    const result = this.chatService.scheduleOrder(
-      deviceId,
-      orderId,
-      new Date(scheduledDate),
-    );
-
+  /**
+   * Health check
+   */
+  @Get('health')
+  health() {
     return {
-      success: true,
-      message: result,
+      status: 'ok',
+      message: 'ChatBot API is running',
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  /**
+   * Get chatbot info
+   */
+  @Get('info')
+  info() {
+    return {
+      name: 'Restaurant ChatBot',
+      version: '1.0.0',
+      description: 'A full-featured restaurant ordering chatbot',
+      features: [
+        'Interactive chat interface',
+        'Browse restaurant menu',
+        'Add items to cart',
+        'Paystack payment integration',
+        'Order history tracking',
+        'View current orders',
+        'Cancel orders',
+        'Device-based session management',
+        'Input validation',
+      ],
     };
   }
 }

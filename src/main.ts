@@ -1,16 +1,28 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import * as express from 'express';
-import * as path from 'path';
+import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Enable CORS
   app.enableCors();
-  app.use(express.static(path.join(__dirname, '..', 'public')));
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ limit: '10mb', extended: true }));
-  await app.listen(3000);
-  console.log('✅ Restaurant ChatBot is running on http://localhost:3000');
-  console.log('🌐 Access chatbot at http://localhost:3000/chatbot.html');
+
+  // Global validation pipe
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      transform: true,
+    }),
+  );
+
+  // Serve static files
+  app.use('/public', require('express').static('public'));
+
+  const port = process.env.PORT || 3000;
+  await app.listen(port);
+  console.log(`🚀 Restaurant ChatBot running on http://localhost:${port}`);
 }
+
 bootstrap();
