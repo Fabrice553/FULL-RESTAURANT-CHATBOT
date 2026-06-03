@@ -10,11 +10,14 @@ exports.PaymentModule = void 0;
 const common_1 = require("@nestjs/common");
 const payment_service_1 = require("./payment.service");
 const payment_controller_1 = require("./payment.controller");
+const order_module_1 = require("../order/order.module");
+const session_module_1 = require("../session/session.module");
 let PaymentModule = class PaymentModule {
 };
 exports.PaymentModule = PaymentModule;
 exports.PaymentModule = PaymentModule = __decorate([
     (0, common_1.Module)({
+        imports: [order_module_1.OrderModule, session_module_1.SessionModule], // Add this line
         providers: [payment_service_1.PaymentService],
         exports: [payment_service_1.PaymentService],
         controllers: [payment_controller_1.PaymentController],

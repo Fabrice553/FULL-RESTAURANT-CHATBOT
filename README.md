@@ -17,7 +17,6 @@ A full-featured restaurant ordering chatbot built with **NestJS** and **TypeScri
 - ✅ Input validation
 
 ## 🚀 Quick Start
-
 ### Prerequisites
 - Node.js (v16+)
 - npm
