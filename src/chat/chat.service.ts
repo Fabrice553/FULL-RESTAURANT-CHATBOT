@@ -26,8 +26,8 @@ interface CartItem {
 @Injectable()
 export class ChatService {
   private cartItems: Map<string, CartItem[]> = new Map();
-  private menuNavigationState: Map<string, any> = new Map(); // Track menu browsing state
-  private selectedItem: Map<string, number> = new Map(); // Track selected item for options
+  private menuNavigationState: Map<string, any> = new Map();
+  private selectedItem: Map<string, number> = new Map();
 
   constructor(
     private sessionService: SessionService,
@@ -184,14 +184,16 @@ export class ChatService {
       return '❌ Item not found.';
     }
 
-    if (input === '0') {
+    const command = this.parseCommand(input);
+
+    if (command === 0) {
       this.sessionService.updateSessionState(sessionId, CHAT_STATES.BROWSING_MENU);
       const state = this.menuNavigationState.get(sessionId);
       return this.menuService.formatCategoryItems(state.category);
     }
 
-    if (input === 'confirm') {
-      // Add to cart
+    if (command === 9) {
+      // Add to cart using number 9
       if (!this.cartItems.has(sessionId)) {
         this.cartItems.set(sessionId, []);
       }
@@ -215,7 +217,7 @@ export class ChatService {
       return `✅ ${item.name} added to cart!\n\n` + this.formatCartForDisplay(sessionId);
     }
 
-    return `✅ ${item.name} selected!\n\nEnter 'confirm' to add to cart or '0' to go back`;
+    return `📦 ${item.name} - $${item.price.toFixed(2)}\n\n${item.description}\n\n9️⃣  - Add to cart\n0️⃣  - Back to menu`;
   }
 
   /**
@@ -331,7 +333,8 @@ export class ChatService {
           currentOrder.orderId,
         );
       } catch (error) {
-        return '❌ Failed to generate payment link. Please try again.';
+        console.error('Payment error:', error);
+        return '❌ Failed to generate payment link. Please try again. Error: ' + error.message;
       }
     }
 
@@ -428,7 +431,7 @@ export class ChatService {
     const cart = this.cartItems.get(sessionId) || [];
 
     if (cart.length === 0) {
-      return '🛒 **Your Cart**\n\nCart is empty.\n\n1️⃣  - Continue Shopping\n99️⃣  - Place Order\n0️⃣  - Back to Main Menu';
+      return '🛒 **Your Cart**\n\nCart is empty.\n\n1️⃣  - Add items\n99️⃣  - Checkout\n0️⃣  - Main Menu';
     }
 
     let message = '🛒 **Your Cart**\n\n';
@@ -443,7 +446,7 @@ export class ChatService {
     message += `\n**Total: $${total.toFixed(2)}**\n\n`;
     message += `1️⃣  - Add more items\n`;
     message += `99️⃣  - Checkout\n`;
-    message += `0️⃣  - Back to Main Menu`;
+    message += `0️⃣  - Main Menu`;
 
     return message;
   }

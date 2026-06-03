@@ -1,7 +1,14 @@
-const API_BASE_URL = 'http://localhost:3000/api';
+const API_BASE_URL = getApiUrl();
 const DEVICE_ID = generateDeviceId();
 let sessionId = null;
 let isLoading = false;
+
+function getApiUrl() {
+    // Use current domain for API calls (works on both localhost and production)
+    const protocol = window.location.protocol;
+    const host = window.location.host;
+    return `${protocol}//${host}/api`;
+}
 
 function generateDeviceId() {
     let deviceId = localStorage.getItem('deviceId');
@@ -64,8 +71,11 @@ async function sendMessage(userMessage = null, isInitial = false) {
                 sessionIdDisplay.textContent = sessionId.substring(0, 12) + '...';
             }
             addMessage('bot', data.data.botResponse);
+        } else {
+            addMessage('bot', 'Error: ' + (data.message || 'Unknown error'));
         }
     } catch (error) {
+        console.error('Fetch error:', error);
         addMessage('bot', 'Error: ' + error.message);
     } finally {
         isLoading = false;
