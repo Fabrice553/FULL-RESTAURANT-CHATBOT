@@ -212,10 +212,10 @@ export class ChatService {
       }
 
       this.sessionService.updateSessionState(sessionId, CHAT_STATES.VIEWING_CART);
-      return this.formatCartForDisplay(sessionId);
+      return `✅ ${item.name} added to cart!\n\n` + this.formatCartForDisplay(sessionId);
     }
 
-    return `✅ ${item.name} added to cart!\n\nWhat would you like to do?\n1️⃣  - Add another item\n2️⃣  - View cart\n0️⃣  - Back`;
+    return `✅ ${item.name} selected!\n\nEnter 'confirm' to add to cart or '0' to go back`;
   }
 
   /**
@@ -428,7 +428,7 @@ export class ChatService {
     const cart = this.cartItems.get(sessionId) || [];
 
     if (cart.length === 0) {
-      return '🛒 **Your Cart**\n\nCart is empty.\n\n1️⃣  - Continue Shopping\n0️⃣  - Back to Menu';
+      return '🛒 **Your Cart**\n\nCart is empty.\n\n1️⃣  - Continue Shopping\n99️⃣  - Place Order\n0️⃣  - Back to Main Menu';
     }
 
     let message = '🛒 **Your Cart**\n\n';
@@ -443,7 +443,7 @@ export class ChatService {
     message += `\n**Total: $${total.toFixed(2)}**\n\n`;
     message += `1️⃣  - Add more items\n`;
     message += `99️⃣  - Checkout\n`;
-    message += `0️⃣  - Clear cart`;
+    message += `0️⃣  - Back to Main Menu`;
 
     return message;
   }
