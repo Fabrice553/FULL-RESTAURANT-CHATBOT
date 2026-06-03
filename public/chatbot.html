@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Restaurant ChatBot</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .chatbot-container {
+      width: 100%;
+      max-width: 600px;
+      height: 80vh;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .chatbot-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px;
+      text-align: center;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .chatbot-header h1 {
+      font-size: 24px;
+      margin-bottom: 5px;
+    }
+
+    .chatbot-header p {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+
+    .message {
+      margin-bottom: 15px;
+      animation: slideIn 0.3s ease-in-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message.bot {
+      display: flex;
+      justify-content: flex-start;
+    }
+
+    .message.user {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .message-content {
+      max-width: 80%;
+      padding: 12px 15px;
+      border-radius: 10px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .message.bot .message-content {
+      background: #e3f2fd;
+      color: #1565c0;
+      border-left: 4px solid #667eea;
+    }
+
+    .message.user .message-content {
+      background: #667eea;
+      color: white;
+      border-radius: 10px;
+    }
+
+    .chat-input-area {
+      padding: 15px;
+      background: white;
+      border-top: 1px solid #ddd;
+      display: flex;
+      gap: 10px;
+    }
+
+    .input-group {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+
+    #userInput {
+      flex: 1;
+      padding: 12px 15px;
+      border: 2px solid #ddd;
+      border-radius: 25px;
+      font-size: 14px;
+      transition: border-color 0.3s;
+    }
+
+    #userInput:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .send-btn {
+      padding: 12px 30px;
+      background: #667eea;
+      color: white;
+      border: none;
+      border-radius: 25px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+
+    .send-btn:hover {
+      background: #764ba2;
+    }
+
+    .send-btn:active {
+      transform: scale(0.98);
+    }
+
+    .payment-btn {
+      padding: 10px 20px;
+      background: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    .payment-btn:hover {
+      background: #45a049;
+    }
+
+    .loading {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #667eea;
+      margin-right: 5px;
+      animation: bounce 1.4s infinite;
+    }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1); }
+    }
+
+    .error {
+      color: #d32f2f;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="chatbot-container">
+    <div class="chatbot-header">
+      <h1>🍽️ Restaurant ChatBot</h1>
+      <p>Your AI-powered food ordering assistant</p>
+    </div>
+
+    <div class="chat-messages" id="chatMessages"></div>
+
+    <div class="chat-input-area">
+      <div class="input-group">
+        <input
+          type="text"
+          id="userInput"
+          placeholder="Enter your choice (e.g., 1, 99, 98...)..."
+          onkeypress="handleKeyPress(event)"
+        />
+        <button class="send-btn" onclick="sendMessage()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let deviceId = localStorage.getItem('deviceId') || generateDeviceId();
+    let userEmail = '';
+
+    localStorage.setItem('deviceId', deviceId);
+
+    function generateDeviceId() {
+      return 'device_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    }
+
+    function displayMessage(content, sender) {
+      const chatMessages = document.getElementById('chatMessages');
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `message ${sender}`;
+
+      const messageContent = document.createElement('div');
+      messageContent.className = 'message-content';
+      messageContent.innerHTML = formatMessage(content);
+
+      messageDiv.appendChild(messageContent);
+      chatMessages.appendChild(messageDiv);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function formatMessage(content) {
+      return content
+        .replace(/\n/g, '<br>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/__(.*?)__/g, '<u>$1</u>')
+        .replace(/📦|🤖|💳|📜|📍|❌|✅|🍽️|📝|⏰|🏠|💰|🎯/g, (match) => match);
+    }
+
+    async function sendMessage() {
+      const userInput = document.getElementById('userInput').value.trim();
+
+      if (!userInput) {
+        alert('Please enter a valid option');
+        return;
+      }
+
+      displayMessage(userInput, 'user');
+      document.getElementById('userInput').value = '';
+
+      // Show loading indicator
+      const loadingDiv = document.createElement('div');
+      loadingDiv.className = 'message bot';
+      loadingDiv.innerHTML = '<div class="message-content"><span class="loading"></span> Typing...</div>';
+      document.getElementById('chatMessages').appendChild(loadingDiv);
+
+      try {
+        const response = await fetch('/chat/message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceId, message: userInput, email: userEmail }),
+        });
+
+        const data = await response.json();
+        loadingDiv.remove();
+
+        if (data.success) {
+          displayMessage(data.data.message, 'bot');
+
+          // Handle payment option
+          if (data.data.nextAction === 'payment') {
+            setTimeout(() => showPaymentOption(), 500);
+          }
+        } else {
+          displayMessage('❌ Error: ' + data.message, 'bot');
+        }
+      } catch (error) {
+        loadingDiv.remove();
+        displayMessage('❌ Network error. Please try again.', 'bot');
+        console.error('Error:', error);
+      }
+    }
+
+    async function showPaymentOption() {
+      userEmail = prompt('Please enter your email for payment:');
+      if (!userEmail) return;
+
+      try {
+        const response = await fetch('/chat/payment/initialize', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ deviceId, email: userEmail }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          displayMessage(
+            `✅ Payment link ready!\n\n<a href="${data.data.authorization_url}" target="_blank" style="background: #4caf50; color: white; padding: 10px 20px; border-radius: 5px; text-decoration: none; display: inline-block;">Click here to pay with Paystack</a>`,
+            'bot'
+          );
+        } else {
+          displayMessage('❌ Payment initialization failed: ' + data.message, 'bot');
+        }
+      } catch (error) {
+        displayMessage('❌ Error initializing payment', 'bot');
+        console.error('Error:', error);
+      }
+    }
+
+    function handleKeyPress(event) {
+      if (event.key === 'Enter') {
+        sendMessage();
+      }
+    }
+
+    // Initial greeting
+    window.addEventListener('load', () => {
+      displayMessage(
+        `🍽️ **WELCOME TO RESTAURANT CHATBOT** 🤖\n\nPlease select an option:\n📦 Select **1** - Place an order\n💳 Select **99** - Checkout order\n📜 Select **98** - See order history\n📍 Select **97** - See current order\n❌ Select **0** - Cancel order\n\nWhat would you like to do?`,
+        'bot'
+      );
+    });
+  </script>
+</body>
+</html>
