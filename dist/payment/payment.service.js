@@ -14,7 +14,7 @@ const common_1 = require("@nestjs/common");
 const axios_1 = __importDefault(require("axios"));
 let PaymentService = class PaymentService {
     constructor() {
-        this.paystackSecretKey = 'sk_test_YOUR_PAYSTACK_SECRET_KEY'; // Replace with your key
+        this.paystackSecretKey = 'sk_test_a480070e69c0ee58ddb2f0d2cb77c1e6ddd25769'; // Replace with your key
         this.paystackBaseUrl = 'https://api.paystack.co';
     }
     async initializePayment(email, amount, orderId) {

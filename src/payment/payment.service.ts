@@ -3,7 +3,7 @@ import axios from 'axios';
 
 @Injectable()
 export class PaymentService {
-  private paystackSecretKey = 'sk_test_YOUR_PAYSTACK_SECRET_KEY'; // Replace with your key
+  private paystackSecretKey = 'sk_test_a480070e69c0ee58ddb2f0d2cb77c1e6ddd25769'; // Replace with your key
   private paystackBaseUrl = 'https://api.paystack.co';
 
   async initializePayment(email: string, amount: number, orderId: string) {
